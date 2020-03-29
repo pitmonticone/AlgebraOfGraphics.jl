@@ -95,7 +95,7 @@ AbstractPlotting.save("distributions.svg", AbstractPlotting.current_scene()); no
 iris = dataset("datasets", "iris")
 cols = data([:SepalLength, :SepalWidth], [:PetalLength :PetalWidth])
 grp = primary(layout_x = dims(1), layout_y = dims(2), color = :Species)
-geom = spec(Scatter, markersize = 0.1) + spec(linear, linewidth = 3)
+geom = spec(Scatter, markersize = 10px) + spec(linear, linewidth = 3)
 table(iris) * cols * grp * geom |> draw
 AbstractPlotting.save("layout.svg", AbstractPlotting.current_scene()); nothing #hide
 

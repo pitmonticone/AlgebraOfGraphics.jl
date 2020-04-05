@@ -1,7 +1,7 @@
 # # Tutorial
 #
 # Here we will see what are the basic building blocks of AlgebraOfGraphics, and how to
-# combine them to create complex plots based on datas or other style formats.
+# combine them to create complex plots based on tables or other style formats.
 #
 # ## Basic building blocks
 #
@@ -33,7 +33,7 @@
 # however, both `a` and `b` will only have one layer, and `a * b` simply combines the
 # information.
 #
-# ## Working with datas
+# ## Working with tables
 
 using RDatasets: dataset
 using AlgebraOfGraphics, AbstractPlotting, CairoMakie
@@ -100,9 +100,22 @@ AbstractPlotting.save("layout.svg", AbstractPlotting.current_scene()); nothing #
 
 # ![](layout.svg)
 #
+# ## Choropleth maps
+#
+# Choropleth maps can be plotted using the same syntax:
+#
+
+using GeoJSON
+states = download("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json") 
+states_geo = GeoJSON.read(read(states, String))
+data(states_geo) * style(color = :density) * spec(Poly, colorrange = (0, 1000)) |> draw
+AbstractPlotting.save("choropleth.svg", AbstractPlotting.current_scene()); nothing #hide
+
+# ![](choropleth.svg)
+#
 # ## Non tabular style
 #
-# The framework is not specific to datas, but can be used with anything that the plotting
+# The framework is not specific to tables, but can be used with anything that the plotting
 # package supports.
 
 x = [-pi..0, 0..pi]

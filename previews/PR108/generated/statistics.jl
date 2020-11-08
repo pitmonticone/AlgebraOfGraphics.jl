@@ -8,7 +8,7 @@
 # ## Examples
 
 using RDatasets: dataset
-using AlgebraOfGraphics, AbstractPlotting, CairoMakie
+using AlgebraOfGraphics, CairoMakie
 mpg = dataset("ggplot2", "mpg");
 data(mpg) * mapping(:Displ, :Hwy, layout_x = :Cyl => categorical) * visual(QQPlot) |> draw
 AbstractPlotting.save("qqplot.svg", AbstractPlotting.current_scene()); nothing #hide
@@ -16,7 +16,7 @@ AbstractPlotting.save("qqplot.svg", AbstractPlotting.current_scene()); nothing #
 # ![](qqplot.svg)
 
 using RDatasets: dataset
-using AlgebraOfGraphics, AbstractPlotting, CairoMakie
+using AlgebraOfGraphics, CairoMakie
 mpg = dataset("ggplot2", "mpg");
 mpg.IsAudi = mpg.Manufacturer .== "audi"
 geom = visual(BoxPlot, layout_x = 1) + visual(Violin, layout_x = 2)

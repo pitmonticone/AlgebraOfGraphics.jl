@@ -216,7 +216,7 @@ df = (a=randn(100), b=randn(100), c=randn(100))
 labels = ["Trace 1", "Trace 2", "Trace 3"]
 plt = data(df) *
     density() *
-    mapping((:a, :b, :c) .=> "some label") *
+    mapping([:a, :b, :c] .=> "some label") *
     mapping(color=dims(1) => c -> labels[c])
 draw(plt)
 
@@ -320,6 +320,17 @@ draw(m)
 
 m = mapping(x, (y, z) => (+) => "sum", color=c => (t -> "Type " * t ) => "Category")
 draw(m)
+
+#
+
+m = mapping(x, [y z], color=dims(1) => c -> ["a", "b", "c"][c])
+draw(m)
+
+#
+
+m = mapping(x, [y z], color=["1" "2"])
+layers = visual(Scatter) + linear()
+draw(m * layers)
 
 # ## Legend merging
 

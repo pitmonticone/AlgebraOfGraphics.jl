@@ -5,7 +5,7 @@ penguins = dropmissing(DataFrame(PalmerPenguins.load()))
 data(penguins) * visual(Violin) *
     mapping(:species, :bill_depth_mm, color=:sex, dodge=:sex) |> draw
 
-plt = data(penguins) * visual(Violin)
+plt = data(penguins) * visual(Violin, datalimits=extrema)
 plt *= mapping(:species, :bill_depth_mm, color=:sex, side=:sex, dodge=:island)
 fg = draw(plt, axis=(limits=((0.5, 3.5), nothing),))
 

@@ -23,6 +23,14 @@ z = rand(["a", "b", "c", "d"], 100)
 df = (; x, y, z)
 plt = data(df) * mapping(:x, :y, color=:z)
 colors = ["a" => colorant"#E24A33", "c" => colorant"#348ABD", colorant"#988ED5", colorant"#777777"]
+draw(plt; palettes=(color=colors,))
+
+x = rand(200)
+y = rand(200)
+z = rand(["a", "b", "c", "d", "e", "f", "g", "h"], 200)
+df = (; x, y, z)
+plt = data(df) * mapping(:x, :y, color=:z)
+colors = cgrad(:cividis, 8, categorical=true)
 fg = draw(plt; palettes=(color=colors,))
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl

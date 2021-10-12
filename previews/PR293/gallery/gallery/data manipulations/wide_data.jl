@@ -27,9 +27,9 @@ layers = linear() + visual(Scatter)
 plt = data(df) * layers * mapping(xvars, yvars, col=dims(1), row=dims(2))
 draw(plt)
 
-draw(plt, facet = (; linkxaxes = :all))
+draw(plt, facet = (; linkxaxes = :all, linkyaxes = :all))
 
-fg = draw(plt, facet = (; linkxaxes = :none))
+fg = draw(plt, facet = (; linkxaxes = :none, linkyaxes = :none))
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

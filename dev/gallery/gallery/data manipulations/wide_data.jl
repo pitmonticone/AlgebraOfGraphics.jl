@@ -25,9 +25,11 @@ xvars = ["sepal_length", "sepal_width"]
 yvars = ["petal_length" "petal_width"]
 layers = linear() + visual(Scatter)
 plt = data(df) * layers * mapping(xvars, yvars, col=dims(1), row=dims(2))
-fg = draw(plt)
+draw(plt)
 
-fg = draw(plt, facet = (; linkxaxes = :none))
+draw(plt, facet = (; linkxaxes = :all, linkyaxes = :all))
+
+fg = draw(plt, facet = (; linkxaxes = :none, linkyaxes = :none))
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

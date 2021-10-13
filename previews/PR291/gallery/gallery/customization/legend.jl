@@ -5,7 +5,7 @@ layers = linear() + mapping(color=:group)
 plt = data(df) * layers * mapping(:x, :y)
 draw(plt)
 
-fg = draw(plt, legend=(position = :top, framevisible = true, padding = 5))
+fg = draw(plt, legend=(position=:top, titleposition=:left, framevisible=true, padding=5))
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

@@ -23,7 +23,7 @@ plt = data(df) * mapping(:x, :y, row=:i, col=:j)
 
 draw(plt)
 
-draw(plt, facet = (; linkxaxes = :all))
+draw(plt, facet = (; linkxaxes = :minimal, linkyaxes = :minimal))
 
 draw(plt, facet = (; linkxaxes = :none))
 

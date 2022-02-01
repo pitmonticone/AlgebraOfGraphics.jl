@@ -22,5 +22,19 @@ end
 legend!(fig[end+1, 2], ag, orientation=:horizontal, tellheight=true)
 fig
 
+resolution = (800, 300)
+f = Figure(; resolution)
+ax1 = Axis(f[1, 1])
+ax2 = Axis(f[1, 2])
+
+df = (x=rand(100), y=rand(100), c=rand(["a", "b", "c"], 100))
+plt = data(df) * mapping(:x, :y, color=:c)
+
+scatter!(ax1, rand(10), rand(10), color=:black)
+grid = draw!(ax2, plt)
+legend!(f[1, 3], grid)
+
+f
+
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

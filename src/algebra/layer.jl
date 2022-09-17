@@ -40,6 +40,10 @@ Base.@kwdef struct ProcessedLayer
     attributes::NamedArguments=NamedArguments()
 end
 
+struct ProcessedLayers
+    layers::Vector{ProcessedLayer}
+end
+
 function ProcessedLayer(processedlayer::ProcessedLayer; kwargs...)
     nt = (;
         processedlayer.plottype,
@@ -90,21 +94,24 @@ end
 
 ## Get scales from a `ProcessedLayer`
 
-uniquevalues(v::ArrayLike) = collect(uniquesorted(vec(v)))
+uniquevalues(v::AbstractArray) = collect(uniquesorted(vec(v)))
 
 to_label(label::AbstractString) = label
-to_label(labels::ArrayLike) = reduce(mergelabels, labels)
+to_label(labels::AbstractArray) = reduce(mergelabels, labels)
 
 function categoricalscales(processedlayer::ProcessedLayer, palettes)
     categoricals = MixedArguments()
     merge!(categoricals, processedlayer.primary)
-    merge!(categoricals, Dictionary(filter(iscategoricalcontainer, processedlayer.positional)))
-    return map(keys(categoricals), categoricals) do key, val
+    merge!(categoricals, filter(iscategoricalcontainer, Dictionary(processedlayer.positional)))
+
+    categoricalscales = similar(keys(categoricals), CategoricalScale)
+    map!(categoricalscales, keys(categoricals), categoricals) do key, val
         palette = key isa Integer ? automatic : get(palettes, key, automatic)
         datavalues = key isa Integer ? mapreduce(uniquevalues, mergesorted, val) : uniquevalues(val)
         label = to_label(get(processedlayer.labels, key, ""))
         return CategoricalScale(datavalues, palette, label)
     end
+    return categoricalscales
 end
 
 function has_zcolor(pl::ProcessedLayer)
@@ -118,18 +125,27 @@ end
 function continuousscales(processedlayer::ProcessedLayer)
     continuous = MixedArguments()
     merge!(continuous, filter(iscontinuous, processedlayer.named))
-    merge!(continuous, Dictionary(filter(iscontinuous, processedlayer.positional)))
+    merge!(continuous, filter(iscontinuous, Dictionary(processedlayer.positional)))
 
-    continuousscales = map(keys(continuous), continuous) do key, val
-        extrema = Makie.extrema_nan(val)
+    continuousscales = similar(keys(continuous), ContinuousScale)
+    map!(continuousscales, keys(continuous), continuous) do key, val
+        extrema = extrema_finite(val)
         label = to_label(get(processedlayer.labels, key, ""))
         return ContinuousScale(extrema, label)
     end
+
     # TODO: also encode colormap here
     if has_zcolor(processedlayer) && !haskey(continuousscales, :color)
         colorscale = get(continuousscales, 3, nothing)
         isnothing(colorscale) || insert!(continuousscales, :color, colorscale)
     end
+
+    colorrange = get(processedlayer.attributes, :colorrange, nothing)
+    if !isnothing(colorrange)
+        manualcolorscale = ContinuousScale(colorrange, "", force=true)
+        merge!(mergescales, continuousscales, Dictionary((color=manualcolorscale,)))
+    end
+
     return continuousscales
 end
 
@@ -216,4 +232,62 @@ function append_processedlayers!(pls_grid, processedlayer::ProcessedLayer, categ
         end
     end
     return pls_grid
+end
+
+## Attribute processing
+
+"""
+    compute_attributes(pl::ProcessedLayer, categoricalscales, continuousscales_grid, continuousscales)
+
+Process attributes of a `ProcessedLayer`. In particular,
+- remove AlgebraOfGraphics-specific layout attributes,
+- opt out of Makie cycling mechanism,
+- customize behavior of `color` (implementing `alpha` transparency),
+- customize behavior of bar `width` (default to one unit when not specified),
+- set correct `colorrange`.
+Return computed attributes.
+"""
+function compute_attributes(pl::ProcessedLayer,
+                            categoricalscales::MixedArguments,
+                            continuousscales_grid::AbstractMatrix,
+                            continuousscales::MixedArguments)
+    plottype, primary, named, attributes = pl.plottype, pl.primary, pl.named, pl.attributes
+
+    attrs = NamedArguments()
+    merge!(attrs, attributes)
+    merge!(attrs, primary)
+    merge!(attrs, named)
+
+    # implement alpha transparency
+    alpha = get(attrs, :alpha, automatic)
+    color = get(attrs, :color, automatic)
+    (color !== automatic) && (alpha !== automatic) && (color = (color, alpha))
+
+    # opt out of the default cycling mechanism
+    cycle = nothing
+
+    merge!(attrs, Dictionary(valid_options(; color, cycle)))
+
+    # avoid automatic bar width computation in Makie (issue #277)
+    # sensible default for dates (isse #369)
+    # TODO: consider only doing this for categorical scales or dates
+    if (plottype <: Union{BarPlot, BoxPlot, CrossBar, Violin}) && !haskey(attrs, :width)
+        xscale = get(continuousscales, 1, nothing)
+        width = if isnothing(xscale)
+            1
+        else
+            min, max = xscale.extrema
+            elementwise_rescale(oneunit(max - min))
+        end
+        insert!(attrs, :width, width)
+    end
+
+    # Match colorrange extrema
+    # TODO: might need to change to support temporal color scale
+    # TODO: maybe use plottype to infer whether this should be passed or not
+    colorscale = get(continuousscales, :color, nothing)
+    !isnothing(colorscale) && set!(attrs, :colorrange, colorscale.extrema)
+
+    # remove unnecessary information 
+    return filterkeys(!in((:col, :row, :layout, :alpha)), attrs)
 end

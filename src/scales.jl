@@ -1,19 +1,31 @@
 ## Categorical Scales
 
-increment!(idx::Ref) = (idx[] += 1; idx[])
-
-cycle(v::AbstractVector, i::Int) = v[mod1(i, length(v))]
-
-function apply_palette(p::Union{AbstractVector, AbstractColorList}, uv)
-    values, pairs = Any[], Pair[]
-    for x in p
-        target = ifelse(x isa Pair, pairs, values)
-        push!(target, x)
-    end
-    dict, idx = dictionary(pairs), Ref(0)
-    return [get(() -> cycle(values, increment!(idx)), dict, v) for v in uv]
+mutable struct Cycler{K, V}
+    keys::Vector{K}
+    values::Vector{V}
+    defaults::Vector{Any}
+    idx::Int
 end
 
+function Cycler(p)
+    defaults = vec(collect(Any, p))
+    pairs = splice!(defaults, findall(val -> val isa Pair, defaults))
+    return Cycler(map(first, pairs), map(last, pairs), defaults, 0)
+end
+
+function (c::Cycler)(u)
+    i = findfirst(isequal(u), c.keys)
+    return if isnothing(i)
+        l = length(c.defaults)
+        l == 0 && throw(ArgumentError("Key $(repr(u)) not found and no default values are present"))
+        c.defaults[mod1(c.idx += 1, l)]
+    else
+        c.values[i]
+    end
+end
+
+# Use `Iterators.map` as `map` does not guarantee order
+apply_palette(p::Union{AbstractArray, AbstractColorList}, uv) = collect(Iterators.map(Cycler(p), uv))
 apply_palette(::Automatic, uv) = eachindex(uv)
 apply_palette(p, uv) = map(p, uv)
 
@@ -55,21 +67,18 @@ getlabel(c::CategoricalScale) = something(c.label, "")
 struct ContinuousScale{T}
     extrema::NTuple{2, T}
     label::Union{AbstractString, Nothing}
+    force::Bool
 end
+
+ContinuousScale(extrema, label; force=false) = ContinuousScale(extrema, label, force)
 
 getlabel(c::ContinuousScale) = something(c.label, "")
 
 # recentering hack to avoid Float32 conversion errors on recent dates
 # TODO: remove once Makie supports dates
-const time_offset = let startingdate = Date(2020, 01, 01)
-    ms:: Millisecond = DateTime(startingdate)
-    ms / Millisecond(1)
-end
-
-function datetime2float(x::TimeType)
-    ms::Millisecond = DateTime(x)
-    return ms / Millisecond(1) - time_offset
-end
+datetime2float(x::Union{DateTime, Date}) = datetime2float(DateTime(x) - DateTime(2020, 01, 01))
+datetime2float(x::Time) = datetime2float(x - Time(0))
+datetime2float(x::Period) = Millisecond(x) / Millisecond(1)
 
 """
     datetimeticks(datetimes::AbstractVector{<:TimeType}, labels::AbstractVector{<:AbstractString})
@@ -92,7 +101,7 @@ function datetimeticks(f, datetimes::AbstractVector{<:TimeType})
 end
 
 # Rescaling methods that do not depend on context
-elementwise_rescale(value::TimeType) = datetime2float(value) 
+elementwise_rescale(value::Union{TimeType, Period}) = datetime2float(value) 
 elementwise_rescale(value::Verbatim) = value[]
 elementwise_rescale(value) = value
 
@@ -131,9 +140,12 @@ function mergescales(c1::CategoricalScale, c2::CategoricalScale)
 end
 
 function mergescales(c1::ContinuousScale, c2::ContinuousScale)
-    extrema = extend_extrema(c1.extrema, c2.extrema)
+    c1.force && c2.force && assert_equal(c1.extrema, c2.extrema)
+    i = findfirst((c1.force, c2.force))
+    force = !isnothing(i)
+    extrema = force ? (c1.extrema, c2.extrema)[i] : extend_extrema(c1.extrema, c2.extrema)
     label = mergelabels(c1.label, c2.label)
-    return ContinuousScale(extrema, label)
+    return ContinuousScale(extrema, label, force)
 end
 
 # Logic to create ticks from a scale
@@ -147,11 +159,33 @@ ticks(scale::ContinuousScale) = ticks(scale.extrema)
 
 ticks((min, max)::NTuple{2, Any}) = automatic
 
-function ticks((min, max)::NTuple{2, T}) where T<:TimeType
-    min_ms::Millisecond, max_ms::Millisecond = DateTime(min), DateTime(max)
-    min_pure, max_pure = min_ms / Millisecond(1), max_ms / Millisecond(1)
-    dates, labels = optimize_datetime_ticks(min_pure, max_pure)
-    return (dates .- time_offset, labels)
+temporal_resolutions(::Type{Date}) = (Year, Month, Day)
+temporal_resolutions(::Type{Time}) = (Hour, Minute, Second, Millisecond)
+temporal_resolutions(::Type{DateTime}) = (temporal_resolutions(Date)..., temporal_resolutions(Time)...)
+
+function optimal_datetime_range((x_min, x_max)::NTuple{2, T}; k_min=2, k_max=5) where {T<:TimeType}
+    local P, start, stop
+    for outer P in temporal_resolutions(T)
+        start, stop = trunc(x_min, P), trunc(x_max, P)
+        (start == x_min) || (start += P(1))
+        n = length(start:P(1):stop)
+        n ≥ k_min && return start:P(fld1(n, k_max)):stop
+    end
+    return start:P(1):stop
+end
+
+function format_datetimes(datetimes::AbstractVector{DateTime})
+    dates, times = Date.(datetimes), Time.(datetimes)
+    (dates == datetimes) && return string.(dates)
+    isequal(extrema(dates)...) && return string.(times)
+    return string.(datetimes)
+end
+
+format_datetimes(datetimes::AbstractVector) = string.(datetimes)
+
+function ticks(limits::NTuple{2, TimeType})
+    datetimes = optimal_datetime_range(limits)
+    return datetime2float.(datetimes), format_datetimes(datetimes)
 end
 
 @enum ScientificType categorical continuous geometrical
@@ -167,6 +201,7 @@ function scientific_type(::Type{T}) where T
     T <: Verbatim && return geometrical
     T <: Union{Makie.StaticVector, Point, AbstractGeometry} && return geometrical
     T <: AbstractArray && eltype(T) <: Union{Point, AbstractGeometry} && return geometrical
+    isgeometry(T) && return geometrical
     return categorical
 end
 
@@ -175,30 +210,28 @@ end
 
 Determine whether `v` should be treated as a continuous, geometrical, or categorical array.
 """
-scientific_eltype(v::ArrayLike) = scientific_type(eltype(v))
-scientific_eltype(v) = categorical
+scientific_eltype(v::AbstractArray) = scientific_type(eltype(v))
+
+# TODO: Needed for pregrouped data, but ideally should be removed.
+scientific_eltype(::Any) = categorical
 
 iscategoricalcontainer(u) = any(el -> scientific_eltype(el) === categorical, u)
 iscontinuous(u) = scientific_eltype(u) === continuous
 
 extend_extrema((l1, u1), (l2, u2)) = min(l1, l2), max(u1, u2)
-extend_extrema(::Nothing, (l2, u2)) = (l2, u2)
 
-function compute_extrema(entries, key)
-    acc = nothing
-    for entry in entries
-        col = get(entry, key, nothing)
-        if scientific_eltype(col) === continuous
-            acc = extend_extrema(acc, Makie.extrema_nan(col))
-        end
-    end
-    return acc
+function extrema_finite(v::AbstractArray)
+    iter = Iterators.filter(isfinite, skipmissing(v))
+    init = typemax(eltype(iter)), typemin(eltype(iter))
+    return mapreduce(t -> (t, t), extend_extrema, iter; init)
 end
+
+nested_extrema_finite(iter) = mapreduce(extrema_finite, extend_extrema, iter)
 
 push_different!(v, val) = !isempty(v) && isequal(last(v), val) || push!(v, val)
 
 function mergesorted(v1, v2)
-    issorted(v1) && issorted(v2) || throw(ArgumentError("arguments must be sorted"))
+    issorted(v1) && issorted(v2) || throw(ArgumentError("Arguments must be sorted"))
     T = promote_type(eltype(v1), eltype(v2))
     v = sizehint!(T[], length(v1) + length(v2))
     i1, i2 = 1, 1

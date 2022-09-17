@@ -7,6 +7,7 @@ draw
 draw!
 colorbar!
 legend!
+paginate
 ```
 
 ## Mapping helpers
@@ -17,6 +18,14 @@ sorter
 nonnumeric
 verbatim
 ```
+
+## Theming
+
+```@docs
+set_aog_theme!
+AlgebraOfGraphics.aog_theme
+```
+
 
 ## Ticks helpers
 
@@ -30,4 +39,5 @@ datetimeticks
 AlgebraOfGraphics.scientific_eltype
 AlgebraOfGraphics.scientific_type
 AlgebraOfGraphics.plottypes_attributes
+AlgebraOfGraphics.compute_attributes
 ```

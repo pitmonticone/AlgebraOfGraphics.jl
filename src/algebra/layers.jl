@@ -37,39 +37,12 @@ function compute_processedlayers_grid(processedlayers, categoricalscales)
     return pls_grid
 end
 
-function compute_attributes(pl::ProcessedLayer)
-    plottype, primary, positional, named, attributes =
-        pl.plottype, pl.primary, pl.positional, pl.named, pl.attributes
-
-    attrs = NamedArguments()
-    merge!(attrs, attributes)
-    merge!(attrs, primary)
-    merge!(attrs, named)
-
-    # implement alpha transparency
-    alpha = get(attrs, :alpha, automatic)
-    color = get(attrs, :color, automatic)
-    (color !== automatic) && (alpha !== automatic) && (color = (color, alpha))
-
-    # opt out of the default cycling mechanism
-    cycle = nothing
-
-    merge!(attrs, Dictionary(valid_options(; color, cycle)))
-
-    # avoid automatic bar width computation in Makie (issue #277)
-    # TODO: consider only implementing this when `x` is categorical
-    (plottype <: BarPlot) && !haskey(attrs, :width) && insert!(attrs, :width, 1)
-
-    # remove unnecessary information 
-    return filterkeys(!in((:col, :row, :layout, :alpha)), attrs)
-end
-
-function compute_entries_continuousscales(pls_grid)
+function compute_entries_continuousscales(pls_grid, categoricalscales)
     # Here processed layers in `pls_grid` are "sliced",
     # the categorical scales have been applied, but not
     # the continuous scales
 
-    entries_grid = map(_ -> Entry[], pls_grid)
+    rescaled_pls_grid = map(_ -> ProcessedLayer[], pls_grid)
     continuousscales_grid = map(_ -> MixedArguments(), pls_grid)
 
     for idx in eachindex(pls_grid), pl in pls_grid[idx]
@@ -82,35 +55,37 @@ function compute_entries_continuousscales(pls_grid)
         continuousscales = AlgebraOfGraphics.continuousscales(ProcessedLayer(pl; plottype))
         mergewith!(mergescales, continuousscales_grid[idx], continuousscales)
 
-        # Compute `Entry` with rescaled columns
-        attrs = compute_attributes(ProcessedLayer(pl; plottype, positional, named))
-        entry = Entry(plottype, positional, attrs)
-        push!(entries_grid[idx], entry)
+        # Compute `ProcessedLayer` with rescaled columns
+        push!(rescaled_pls_grid[idx], ProcessedLayer(pl; plottype, positional, named))
     end
 
     # Compute merged continuous scales, as it may be needed to use global extrema
     merged_continuousscales = reduce(mergewith!(mergescales), continuousscales_grid, init=MixedArguments())
 
-    colorscale = get(merged_continuousscales, :color, nothing)
-    if !isnothing(colorscale)
-        # TODO: might need to change to support temporal color scale
-        colorrange = colorscale.extrema
-        for entries in entries_grid, entry in entries
-            # Safe to do, as each entry has a separate `named` dictionary
-            set!(entry.named, :colorrange, colorrange)
-        end
+    to_entry = function (pl)
+        attrs = compute_attributes(pl, categoricalscales, continuousscales_grid, merged_continuousscales)
+        return Entry(pl.plottype, pl.positional, attrs)
     end
+    entries_grid = map(pls -> map(to_entry, pls), rescaled_pls_grid)
 
     return entries_grid, continuousscales_grid, merged_continuousscales
 end
 
-function compute_axes_grid(fig, s::OneOrMoreLayers;
+function compute_palettes(palettes)
+    layout = Dictionary((layout=wrap,))
+    theme_palettes = map(to_value, Dictionary(Makie.current_default_theme()[:palette]))
+    user_palettes = Dictionary(palettes)
+    return foldl(merge!, (layout, theme_palettes, user_palettes), init=NamedArguments())
+end
+
+function compute_axes_grid(fig, s::Union{OneOrMoreLayers, ProcessedLayers};
                            axis=NamedTuple(), palettes=NamedTuple())
 
     axes_grid = compute_axes_grid(s; axis, palettes)
     sz = size(axes_grid)
-    if sz !== (1, 1) && fig isa Axis
-        error("You can only pass an `Axis` to `draw!`, if the calculated layout only contains one element. Elements: $(sz)")
+    if sz != (1, 1) && fig isa Axis
+        msg = "You can only pass an `Axis` to `draw!` if the calculated layout only contains one element. Elements: $(sz)"
+        throw(ArgumentError(msg))
     end
 
     return map(ae -> AxisEntries(ae, fig), axes_grid)
@@ -118,12 +93,17 @@ end
 
 function compute_axes_grid(s::OneOrMoreLayers;
                            axis=NamedTuple(), palettes=NamedTuple())
+
     layers::Layers = s
-    processedlayers = map(ProcessedLayer, layers)
+    processedlayers = ProcessedLayers(map(ProcessedLayer, layers))
+    compute_axes_grid(processedlayers; axis, palettes)
+end
 
-    theme_palettes = NamedTuple(Makie.current_default_theme()[:palette])
-    palettes = merge((layout=wrap,), map(to_value, theme_palettes), palettes)
+function compute_axes_grid(p::ProcessedLayers;
+                           axis=NamedTuple(), palettes=NamedTuple())
+    palettes = compute_palettes(palettes)
 
+    processedlayers = p.layers
     categoricalscales = MixedArguments()
     for processedlayer in processedlayers
         mergewith!(
@@ -137,7 +117,7 @@ function compute_axes_grid(s::OneOrMoreLayers;
 
     pls_grid = compute_processedlayers_grid(processedlayers, categoricalscales)
     entries_grid, continuousscales_grid, merged_continuousscales =
-        compute_entries_continuousscales(pls_grid)
+        compute_entries_continuousscales(pls_grid, categoricalscales)
 
     indices = CartesianIndices(pls_grid)
     axes_grid = map(indices) do c

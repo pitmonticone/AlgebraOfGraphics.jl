@@ -5,7 +5,7 @@ function compute_edges(intervals::Tuple, bins, closed)
     return map(intervals, bs) do (min, max), b
         b isa AbstractVector && return b
         b isa Integer && return histrange(float(min), float(max), b, closed)
-        msg = "only AbstractVector and Integer or tuples thereof are accepted as bins"
+        msg = "Only AbstractVector and Integer or tuples thereof are accepted as bins"
         throw(ArgumentError(msg))
     end
 end
@@ -74,7 +74,9 @@ The attribute `bins` can be an `Integer`, an `AbstractVector` (in particular, a 
 a `Tuple` of either integers or abstract vectors (useful for 2- or 3-dimensional histograms).
 When `bins` is an `Integer`, it denotes the approximate number of equal-width
 intervals used to compute the histogram. In that case, the range covered by the
-intervals is defined by `datalimits` (defaults to the extrema of the data).
+intervals is defined by `datalimits` (it defaults to the extrema of the whole data).
+The keyword argument `datalimits` can be a tuple of two values, e.g. `datalimits=(0, 10)`,
+or a function to be applied group by group, e.g. `datalimits=extrema`.
 When `bins` is an `AbstractVector`, it denotes the intervals directly.
 
 `closed` determines whether the the intervals are closed to the left or to the right.
@@ -89,7 +91,7 @@ The histogram can be normalized by setting `normalization`. Possible values are:
    norm 1.
 *  `:none`: Do not normalize.
 
-Weighted data is supported via the keyword `weights`.
+Weighted data is supported via the keyword `weights` (passed to `mapping`).
 
 !!! note
 

@@ -9,6 +9,8 @@
 - Customizable axis linking behavior.
 - Customizable legend and colorbar position and look.
 - In v0.6.1, support `level` in `linear` analysis for confidence interval.
+- In v0.6.8, added `choropleth` recipe to supersede `geodata` for geographical data.
+- In v0.6.11, added `paginate` for pagination of large facet plots. 
 
 ## Internal changes
 

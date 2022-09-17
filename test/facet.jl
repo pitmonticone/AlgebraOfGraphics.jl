@@ -72,9 +72,10 @@ end
         @test label in contents(fig[1, i, Top()])
         @test label.rotation[] == 0
         @test label.padding[] == (0, 0, ax.titlegap[], 0)
-        @test label.color == ax.titlecolor
-        @test label.font == ax.titlefont
-        @test label.textsize == ax.titlesize
+        @test label.color[] == ax.titlecolor[]
+        @test label.font[] == ax.titlefont[]
+        @test label.textsize[] == ax.titlesize[]
+        @test label.visible[] == ax.titlevisible[]
     end
 
     labels = row_labels!(fig, aes, scales[:row])
@@ -83,11 +84,12 @@ end
     @test labels[3].text[] == "f"
     for (i, label) in enumerate(labels)
         @test label in contents(fig[i, 3, Right()])
-        @test label.rotation[] == -π/2
+        @test label.rotation[] ≈ -π/2
         @test label.padding[] == (ax.titlegap[], 0, 0, 0)
-        @test label.color == ax.titlecolor
-        @test label.font == ax.titlefont
-        @test label.textsize == ax.titlesize
+        @test label.color[] == ax.titlecolor[]
+        @test label.font[] == ax.titlefont[]
+        @test label.textsize[] == ax.titlesize[]
+        @test label.visible[] == ax.titlevisible[]
     end
 
     df = (x=rand(100), y=rand(100), i=rand(["a", "b", "c", "d"], 100))
@@ -107,9 +109,10 @@ end
         @test label in contents(fig[i, j, Top()])
         @test label.rotation[] == 0
         @test label.padding[] == (0, 0, ax.titlegap[], 0)
-        @test label.color == ax.titlecolor
-        @test label.font == ax.titlefont
-        @test label.textsize == ax.titlesize
+        @test label.color[] == ax.titlecolor[]
+        @test label.font[] == ax.titlefont[]
+        @test label.textsize[] == ax.titlesize[]
+        @test label.visible[] == ax.titlevisible[]
     end
 end
 
@@ -121,18 +124,18 @@ end
     ax = first(aes).axis
 
     label = span_xlabel!(fig, aes)
-    @test label.rotation[] == 0.0
-    @test label.color == ax.xlabelcolor
-    @test label.font == ax.xlabelfont
-    @test label.textsize == ax.xlabelsize
+    @test label.rotation[] == 0
+    @test label.color[] == ax.xlabelcolor[]
+    @test label.font[] == ax.xlabelfont[]
+    @test label.textsize[] == ax.xlabelsize[]
     @test label.text[] == "xlabel"
     @test label in contents(fig[3, :, Bottom()])
 
     label = span_ylabel!(fig, aes)
-    @test label.rotation[] == π/2
-    @test label.color == ax.ylabelcolor
-    @test label.font == ax.ylabelfont
-    @test label.textsize == ax.ylabelsize
+    @test label.rotation[] ≈ π/2
+    @test label.color[] == ax.ylabelcolor[]
+    @test label.font[] == ax.ylabelfont[]
+    @test label.textsize[] == ax.ylabelsize[]
     @test label.text[] == "ylabel"
     @test label in contents(fig[:, 1, Left()])
 end
@@ -146,8 +149,8 @@ end
     for c in CartesianIndices(axs)
         i, j = Tuple(c)
         ax = axs[i, j]
-        @test ax.xaxislinks == setdiff(axs, [ax])
-        @test ax.yaxislinks == setdiff(axs[i, :], [ax])
+        @test issetequal(ax.xaxislinks, setdiff(axs, [ax]))
+        @test issetequal(ax.yaxislinks, setdiff(axs[i, :], [ax]))
     end
 
     fg = draw(plt; facet=(linkxaxes=:colwise, linkyaxes=:all))
@@ -156,8 +159,8 @@ end
     for c in CartesianIndices(axs)
         i, j = Tuple(c)
         ax = axs[i, j]
-        @test ax.xaxislinks == setdiff(axs[:, j], [ax])
-        @test ax.yaxislinks == setdiff(axs, [ax])
+        @test issetequal(ax.xaxislinks, setdiff(axs[:, j], [ax]))
+        @test issetequal(ax.yaxislinks, setdiff(axs, [ax]))
     end
 
     fg = draw(plt; facet=(linkxaxes=false, linkyaxes=false))
@@ -178,8 +181,8 @@ end
     for c in CartesianIndices(axs)
         i, j = Tuple(c)
         ax = axs[i, j]
-        @test ax.xaxislinks == setdiff(axs, [ax])
-        @test ax.yaxislinks == setdiff(axs[i, :], [ax])
+        @test issetequal(ax.xaxislinks, setdiff(axs, [ax]))
+        @test issetequal(ax.yaxislinks, setdiff(axs[i, :], [ax]))
     end
 
     df = (x=rand(100), y=rand(100), i=rand(["a", "b", "c", "d", "e"], 100))
@@ -190,8 +193,8 @@ end
     for c in CartesianIndices(axs)
         i, j = Tuple(c)
         ax = axs[i, j]
-        @test ax.xaxislinks == setdiff(axs, [ax])
-        @test ax.yaxislinks == setdiff(axs[i, :], [ax])
+        @test issetequal(ax.xaxislinks, setdiff(axs, [ax]))
+        @test issetequal(ax.yaxislinks, setdiff(axs[i, :], [ax]))
     end
     @test isempty(contents(fg.figure[2, 3]))
 end
@@ -240,7 +243,8 @@ end
     for c in CartesianIndices(axs)
         ax = axs[c]
         i, j = Tuple(c)
-        hidex = (i != 2) && !(i ==1 && j == 3) # above empty plot
+        aboveempty = i == 1 && j == 3 # subplot above an empty subplot
+        hidex = (i != 2) && !aboveempty
         hidey = false
         @test ax.xticklabelsvisible[] == !hidex
         @test ax.xticksvisible[] == !hidex
@@ -253,6 +257,9 @@ end
         @test ax.yminorticksvisible[] == !hidey
         @test ax.ygridvisible[] == true
         @test ax.yminorgridvisible[] == true
+
+        alignmode = aboveempty ? Mixed(bottom=Protrusion(0)) : Inside()
+        @test ax.alignmode[] == alignmode
     end
     @test isempty(contents(fg.figure[2, 3]))
 end

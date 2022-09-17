@@ -1,7 +1,7 @@
 # ---
 # title: Geographic data
 # cover: assets/geographic.png
-# description: Antarctic coastline
+# description: Antarctic coastline.
 # author: "[Pietro Vertechi](https://github.com/piever)"
 # ---
 
@@ -27,7 +27,7 @@ t = mktempdir() do dir
 end
 
 ## Draw map
-plt = geodata(t) * mapping(:geometry, color = :surface) * visual(Poly)
+plt = data(t) * mapping(:geometry, color = :surface) * visual(Choropleth)
 fg = draw(plt; axis=(aspect=1,))
 
 # save cover image #src

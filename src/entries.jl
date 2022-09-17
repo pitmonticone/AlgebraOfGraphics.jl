@@ -24,7 +24,7 @@ function Base.append!(e1::Entry, e2::Entry)
     return Entry(plottype, positional, named)
 end
 
-# Use technique from https://github.com/JuliaPlots/AlgebraOfGraphics.jl/pull/289
+# Use technique from https://github.com/MakieOrg/AlgebraOfGraphics.jl/pull/289
 # to encode all axis information without creating the axis.
 struct AxisSpec
     type::Union{Type{Axis}, Type{Axis3}}
@@ -42,8 +42,8 @@ end
 struct AxisSpecEntries
     axis::AxisSpec
     entries::Vector{Entry}
-    categoricalscales::MixedArguments
-    continuousscales::MixedArguments
+    categoricalscales::Dictionary{KeyType, CategoricalScale}
+    continuousscales::Dictionary{KeyType, ContinuousScale}
 end
 
 """
@@ -56,8 +56,8 @@ scale should be a `ContinuousScale`.
 struct AxisEntries
     axis::Union{Axis, Axis3}
     entries::Vector{Entry}
-    categoricalscales::MixedArguments
-    continuousscales::MixedArguments
+    categoricalscales::Dictionary{KeyType, CategoricalScale}
+    continuousscales::Dictionary{KeyType, ContinuousScale}
 end
 
 function AxisEntries(ae::AxisSpecEntries, fig)
@@ -101,7 +101,5 @@ function FileIO.save(file::FileIO.Formatted, fg::FigureGrid; kwargs...)
     return FileIO.save(file, fg.figure; kwargs...)
 end
 
-to_tuple(fg) = (fg.figure, fg.grid)
-
-Base.iterate(fg::FigureGrid) = iterate(to_tuple(fg))
-Base.iterate(fg::FigureGrid, i) = iterate(to_tuple(fg), i)
+Base.iterate(fg::FigureGrid) = iterate((fg.figure, fg.grid))
+Base.iterate(fg::FigureGrid, i) = iterate((fg.figure, fg.grid), i)

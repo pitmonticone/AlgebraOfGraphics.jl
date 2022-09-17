@@ -1,7 +1,7 @@
 # ---
 # title: Colorbar tweaking
 # cover: assets/colorbar_tweaking.png
-# description: Setting colorbar attributes
+# description: Setting colorbar attributes.
 # ---
 
 using AlgebraOfGraphics, CairoMakie
@@ -16,6 +16,11 @@ draw(plt)
 #
 
 fg = draw(plt, colorbar=(position=:top, size=25))
+
+# To change the colormap, pass the `colormap` keyword to `visual`. For example
+
+plt = visual(Scatter, colormap=:thermal) * data(df) * mapping(:x, :y, color=:z)
+draw(plt)
 
 # save cover image #src
 mkpath("assets") #src

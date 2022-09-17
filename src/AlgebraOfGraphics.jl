@@ -2,12 +2,12 @@ module AlgebraOfGraphics
 
 using Base: front, tail
 using Dates
-using Tables: rows, columns, getcolumn, columnnames
+using Tables: rows, columns, getcolumn, columnnames, columntable
 using StructArrays: StructArrays, components, uniquesorted, GroupPerm, StructArray
 using GeometryBasics: AbstractGeometry, Polygon, MultiPolygon
-using GeoInterface: coordinates, geotype
+using GeoInterface: coordinates, isgeometry, geomtrait, PolygonTrait, MultiPolygonTrait
 using Colors: RGB, RGBA, red, green, blue, Color
-using PlotUtils: optimize_datetime_ticks, AbstractColorList
+using PlotUtils: AbstractColorList
 using Makie
 using Makie: current_default_theme, to_value, automatic, Automatic, PlotFunc, ATTRIBUTES
 import Makie.MakieLayout: hidexdecorations!,
@@ -18,7 +18,7 @@ import Makie.MakieLayout: hidexdecorations!,
                           linkyaxes!
 using GridLayoutBase: update!, Protrusion, protrusionsobservable
 using PooledArrays: PooledArray
-using Dictionaries: AbstractDictionary, Dictionary, Indices, dictionary, getindices, set!
+using Dictionaries: AbstractDictionary, Dictionary, Indices, getindices, set!
 using KernelDensity: kde, pdf
 using StatsBase: fit, histrange, Histogram, normalize, sturges, StatsBase
 
@@ -36,6 +36,7 @@ export datetimeticks
 export draw, draw!
 export facet!, colorbar!, legend!
 export set_aog_theme!
+export paginate
 
 include("dict.jl")
 include("theme.jl")
@@ -43,11 +44,11 @@ include("helpers.jl")
 include("scales.jl")
 include("entries.jl")
 include("facet.jl")
-include("geometry.jl")
 include("algebra/layer.jl")
 include("algebra/layers.jl")
 include("algebra/select.jl")
 include("algebra/processing.jl")
+include("recipes/choropleth.jl")
 include("recipes/linesfill.jl")
 include("transformations/visual.jl")
 include("transformations/linear.jl")
@@ -62,5 +63,6 @@ include("guides/legendelements.jl")
 include("guides/legend.jl")
 include("guides/colorbar.jl")
 include("draw.jl")
+include("paginate.jl")
 
 end
